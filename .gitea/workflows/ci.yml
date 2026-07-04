@@ -20,26 +20,24 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: pnpm/action-setup@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: lts/*
-          # Nécessite que le cache soit activé dans la config de l'act_runner
-          # ([cache] enabled = true, actif par défaut sur les versions récentes).
-          cache: pnpm
+          # Nécessite que le cache soit activé dans la config de l'act_runner.
+          # Si le step échoue à cause du cache, supprimer simplement cette ligne.
+          cache: npm
 
       - name: Installer les dépendances
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Lint (oxlint)
-        run: pnpm run lint
+        run: npm run lint
 
       - name: Typecheck (tsc)
-        run: pnpm run typecheck
+        run: npm run typecheck
 
       - name: Tests (vitest)
-        run: pnpm run test
+        run: npm run test
 
       - name: Build de vérification
-        run: pnpm run build
+        run: npm run build
