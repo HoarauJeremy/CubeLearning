@@ -1,0 +1,43 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  ci:
+    # Le label doit correspondre à un label déclaré sur ton act_runner
+    # (ubuntu-latest est le mapping par défaut vers une image type node/ubuntu).
+    runs-on: ubuntu-latest
+    steps:
+      # NOTE sécurité : idéalement, épingler chaque action sur un SHA précis
+      # plutôt qu'un tag de version (ex: actions/checkout@<sha>).
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          # Nécessite que le cache soit activé dans la config de l'act_runner
+          # ([cache] enabled = true, actif par défaut sur les versions récentes).
+          cache: pnpm
+
+      - name: Installer les dépendances
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (oxlint)
+        run: pnpm run lint
+
+      - name: Typecheck (tsc)
+        run: pnpm run typecheck
+
+      - name: Tests (vitest)
+        run: pnpm run test
+
+      - name: Build de vérification
+        run: pnpm run build

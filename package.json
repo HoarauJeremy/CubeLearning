@@ -9,7 +9,7 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest",
-    "typecheck": "typecheck"
+    "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
     "react": "^19.2.7",

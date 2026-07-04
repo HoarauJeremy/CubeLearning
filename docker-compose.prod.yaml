@@ -1,0 +1,10 @@
+services:
+  app:
+    build:
+      context: .
+      target: prod
+      dockerfile: Dockerfile
+      # Ou, si l'image est publiée sur le registre Gitea par la CI (release.yml) :
+      # image: git.mondomaine.tld/mon-user/rubik-trainer:latest
+    ports:
+      - "8080:80"

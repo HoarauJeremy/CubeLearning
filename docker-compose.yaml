@@ -1,0 +1,22 @@
+services:
+  app:
+    build:
+      context: .
+      target: dev
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    environment:
+      # À décommenter si le HMR ne détecte pas les changements
+      # - CHOKIDAR_USEPOLLING=true
+      - NODE_ENV=development
+    
+volumes:
+  node_modules:
+
+# NOTE : après un ajout/une mise à jour de dépendance dans package.json,
+# le volume node_modules est périmé. Le rafraîchir avec :
+#   docker compose down -v && docker compose up --build
