@@ -4,15 +4,14 @@ import {
   applyMove,
   applyMoves,
   isCrossSolved,
-  Face,
-  Move,
   movesToString,
   parseMoves,
   solvedState,
   statesEqual,
-  State,
   toFacelets,
 } from '../core/Cube';
+
+import type { Face, Move } from "../core/Cube";
 
 /* ------------------------------------------------------------------ */
 /* Modèle de référence indépendant, au niveau des 54 stickers.         */
