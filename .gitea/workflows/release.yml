@@ -1,0 +1,37 @@
+name: Release
+on:
+  push:
+    tags:
+      - "v*"
+
+# permissions: {}
+permissions:
+  contents: read
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Login au registre Gitea
+        run: |
+          echo "${{ secrets.REGISTRY_TOKEN }}" | docker login "${{ gitea.server_url }}" \
+            --username "${{ gitea.actor }}" --password-stdin
+
+      - name: Build de l'image prod
+        run: |
+          REGISTRY_HOST=$(echo "${{ gitea.server_url }}" | sed 's|https\?://||')
+          IMAGE="$REGISTRY_HOST/${{ gitea.repository }}"
+          docker build --target prod \
+            -t "$IMAGE:${{ gitea.ref_name }}" \
+            -t "$IMAGE:latest" .
+
+      - name: Push
+        run: |
+          REGISTRY_HOST=$(echo "${{ gitea.server_url }}" | sed 's|https\?://||')
+          IMAGE="$REGISTRY_HOST/${{ gitea.repository }}"
+          docker push "$IMAGE:${{ gitea.ref_name }}"
+          docker push "$IMAGE:latest"
