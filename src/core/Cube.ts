@@ -288,3 +288,140 @@ export function toFacelets(s: State): string {
   }
   return f.join('');
 }
+
+const FACES: Face[] = ['U', 'R', 'F', 'D', 'L', 'B'];
+const OPPOSITE: Record<Face, Face> = { U: 'D', D: 'U', R: 'L', L: 'R', F: 'B', B: 'F' };
+
+export function generateScramble(n = 20, rng: () => number = Math.random): Move[] {
+  const moves : Move[] = [];
+
+  while (moves.length < n) {
+    const face = FACES[Math.floor(rng() * FACES.length)];
+
+    if (moves.length >= 1 && face === moves.at(-1)?.face) continue;
+
+    if (
+      moves.length >= 2 && 
+      face === moves.at(-2)?.face && 
+      OPPOSITE[face] === moves.at(-1)?.face
+    ) continue;
+
+    const turns = ([1,2,3] as const)[Math.floor(rng() * 3)];
+    moves.push({face, turns});
+  }
+
+  return moves;
+}
+
+export interface CrossState {
+  pos: number[]; // pos[k] = slot occupé par l'arête de croix k (l'arête d'id 4+k)
+  ori: number[]; // ori[k] = son orientation (0 | 1)
+}
+
+/** Extrait l'état croix (4 arêtes DR, DF, DL, DB) d'un état complet. */
+export function crossStateFromFull(s: State): CrossState {
+  const pos = new Array<number>(4);
+  const ori = new Array<number>(4);
+
+  for (let slot = 0; slot < 12; slot++) {
+    const edge = s.ep[slot];
+    if (edge >= 4 && edge <= 7) {
+      pos[edge - 4] = slot;
+      ori[edge - 4] = s.eo[slot];
+    }
+  }
+
+  return { pos, ori };
+}
+
+/** Encode un état croix en index unique dans [0, 190080). */
+export function crossIndex(cs: CrossState): number {
+  let rank = 0;
+
+  for (let k = 0; k < 4; k++) {
+    let c = cs.pos[k];
+    for (let j = 0; j < k; j++) {
+      if (cs.pos[j] < cs.pos[k]) c--;
+    }
+    rank = rank * (12 - k) + c;
+  }
+  const oriBits =
+    cs.ori[0] | (cs.ori[1] << 1) | (cs.ori[2] << 2) | (cs.ori[3] << 3);
+  return rank * 16 + oriBits;
+}
+
+// Tables "aller" dérivées d'applyMove une seule fois au chargement du module :
+// DEST[face][p] = slot où arrive l'arête du slot p après un quart de tour.
+// FLIP[face][p] = delta d'orientation (0 | 1) subi à ce passage.
+const DEST: Record<Face, number[]> = {} as Record<Face, number[]>;
+const FLIP: Record<Face, number[]> = {} as Record<Face, number[]>;
+for (const face of ['U', 'R', 'F', 'D', 'L', 'B'] as Face[]) {
+  const s1 = applyMove(solvedState(), { face, turns: 1 });
+  DEST[face] = new Array<number>(12);
+  FLIP[face] = new Array<number>(12);
+  for (let q = 0; q < 12; q++) {
+    const p = s1.ep[q];
+    DEST[face][p] = q;
+    FLIP[face][p] = s1.eo[q];
+  }
+}
+
+/** Applique un mouvement à un état croix. Ne mute pas l'entrée. */
+export function applyMoveToCross(cs: CrossState, m: Move): CrossState {
+  let pos = cs.pos;
+  let ori = cs.ori;
+  for (let t = 0; t < m.turns; t++) {
+    const np = new Array<number>(4);
+    const no = new Array<number>(4);
+    for (let k = 0; k < 4; k++) {
+      np[k] = DEST[m.face][pos[k]];
+      no[k] = ori[k] ^ FLIP[m.face][pos[k]];
+    }
+    pos = np;
+    ori = no;
+  }
+  return { pos, ori };
+}
+
+export const N_CROSS_STATES = 12 * 11 * 10 * 9 * 16; // 190 080
+
+/** BFS complet depuis la croix résolue. dist[i] = nb de mouvements pour résoudre. */
+export function buildDistanceTable(): Uint8Array {
+  const dist = new Uint8Array(N_CROSS_STATES).fill(255); // 255 = non visité
+  const start: CrossState = { pos: [4, 5, 6, 7], ori: [0, 0, 0, 0] };
+  dist[crossIndex(start)] = 0;
+
+  const queue: CrossState[] = [start];
+  let head = 0; // pointeur de tête : file O(1), surtout PAS queue.shift()
+  while (head < queue.length) {
+    const cs = queue[head++];
+    const d = dist[crossIndex(cs)];
+    for (const m of ALL_MOVES) {
+      const cs2 = applyMoveToCross(cs, m);
+      const i2 = crossIndex(cs2);
+      if (dist[i2] === 255) {
+        dist[i2] = d + 1;
+        queue.push(cs2);
+      }
+    }
+  }
+  return dist;
+}
+
+/** Séquence optimale (HTM) qui résout la croix depuis un état complet. */
+export function solveCross(state: State, dist: Uint8Array): Move[] {
+  let cs = crossStateFromFull(state);
+  const solution: Move[] = [];
+  while (dist[crossIndex(cs)] > 0) {
+    const d = dist[crossIndex(cs)];
+    for (const m of ALL_MOVES) {
+      const cs2 = applyMoveToCross(cs, m);
+      if (dist[crossIndex(cs2)] === d - 1) {
+        solution.push(m);
+        cs = cs2;
+        break;
+      }
+    }
+  }
+  return solution;
+}
