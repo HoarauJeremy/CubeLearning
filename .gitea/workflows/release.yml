@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  REGISTRY: git.jeremyhoarau.re
+
 jobs:
   docker:
     runs-on: ubuntu-latest
@@ -18,20 +21,18 @@ jobs:
 
       - name: Login au registre Gitea
         run: |
-          echo "${{ secrets.REGISTRY_TOKEN }}" | docker login "${{ gitea.server_url }}" \
+          echo "${{ secrets.REGISTRY_TOKEN }}" | docker login "${{ env.REGISTRY }}" \
             --username "${{ gitea.actor }}" --password-stdin
 
       - name: Build de l'image prod
         run: |
-          REGISTRY_HOST=$(echo "${{ gitea.server_url }}" | sed 's|https\?://||')
-          IMAGE="$REGISTRY_HOST/${{ gitea.repository }}"
+          IMAGE="${{ env.REGISTRY }}/${{ gitea.repository }}"
           docker build --target prod \
             -t "$IMAGE:${{ gitea.ref_name }}" \
             -t "$IMAGE:latest" .
 
       - name: Push
         run: |
-          REGISTRY_HOST=$(echo "${{ gitea.server_url }}" | sed 's|https\?://||')
-          IMAGE="$REGISTRY_HOST/${{ gitea.repository }}"
+          IMAGE="${{ env.REGISTRY }}/${{ gitea.repository }}"
           docker push "$IMAGE:${{ gitea.ref_name }}"
           docker push "$IMAGE:latest"
